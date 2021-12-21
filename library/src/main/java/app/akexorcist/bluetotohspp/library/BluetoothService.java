@@ -19,6 +19,7 @@ package app.akexorcist.bluetotohspp.library;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.UUID;
 
@@ -333,6 +334,8 @@ public class BluetoothService {
         private final InputStream mmInStream;
         private final OutputStream mmOutStream;
 
+        private final ByteBuffer mReadBuffer = ByteBuffer.allocate(256);
+
         public ConnectedThread(BluetoothSocket socket, String socketType) {
             mmSocket = socket;
             InputStream tmpIn = null;
@@ -354,20 +357,17 @@ public class BluetoothService {
 
             // Keep listening to the InputStream while connected
             while (true) {
+                int size;
                 try {
-                    int data = mmInStream.read();
-                    if(data == 0x0A) { 
-                    } else if(data == 0x0D) {
-                        buffer = new byte[arr_byte.size()];
-                        for(int i = 0 ; i < arr_byte.size() ; i++) {
-                            buffer[i] = arr_byte.get(i).byteValue();
-                        }
-                        // Send the obtained bytes to the UI Activity
+                    size = mmInStream.available();
+
+                    if (size > 0) {
+                        mmInStream.read(mReadBuffer.array());
+                        byte[] oriData = new byte[size];
+                        mReadBuffer.get(oriData, 0, size);
+                        mReadBuffer.clear();
                         mHandler.obtainMessage(BluetoothState.MESSAGE_READ
-                                , buffer.length, -1, buffer).sendToTarget();
-                        arr_byte = new ArrayList<Integer>();
-                    } else {
-                        arr_byte.add(data);
+                                , oriData.length, -1, oriData).sendToTarget();
                     }
                 } catch (IOException e) {
                     connectionLost();
@@ -375,6 +375,7 @@ public class BluetoothService {
                     BluetoothService.this.start(BluetoothService.this.isAndroid);
                     break;
                 }
+                mySleep(20);
             }
         }
 
@@ -398,6 +399,14 @@ public class BluetoothService {
             try {
                 mmSocket.close();
             } catch (IOException e) { }
+        }
+    }
+
+    public static void mySleep(int sleep) {
+        try {
+            Thread.sleep(sleep);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 }
